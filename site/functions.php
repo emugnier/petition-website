@@ -1,0 +1,697 @@
+<?php
+//phpinfo();
+
+function connectsgbd(){
+  $mysqli=mysqli_connect('localhost','root','','g22');
+  if (mysqli_connect_errno($mysqli)) {
+    echo "Echec lors de la connexion à MySQL".mysqli_connect_error();
+  }
+  return $mysqli;
+}
+
+// permet de voir si un profil est connecté
+/*function testconnecion() {
+  if (!isset($_SESSION['connecte'])) die("Access interdit.");
+}*/
+
+class profil {
+  public $ID;
+  public $mail;
+  public $pseudo;
+  public $mdp;
+  public $nom;
+  public $prenom;
+  public $timestamp;
+
+  function construct_tabID($tab_profil){
+    $this->ID=$tab_profil["ID"];
+    $this->mail=$tab_profil["mail"];
+    $this->pseudo=$tab_profil["pseudo"];
+    $this->mdp=$tab_profil["mdp"];
+    $this->nom=$tab_profil["nom"];
+    $this->prenom=$tab_profil["prenom"];
+    $this->timestamp=$tab_profil["timestamp"];
+  }
+
+
+  function construct_tab($tab_profil){
+    $this->mail=$tab_profil["mail"];
+    $this->pseudo=$tab_profil["pseudo"];
+    $this->mdp=$tab_profil["mdp"];
+    $this->nom=$tab_profil["nom"];
+    $this->prenom=$tab_profil["prenom"];
+  }
+
+  function affichage(){
+    $tab_affichage=get_object_vars($this);
+    foreach($tab_affichage as $value=>$case){
+      echo $value." ".$case. "<br>";}
+  }
+}
+
+
+class petition {
+  public $ID;
+  public $titre;
+  public $ID_categorie;
+  public $ID_profil;
+  public $resume;
+  public $description;
+  public $decideur;
+  public $objectif_signature;
+  public $timestamp;
+
+  function construct_tabID($tab_petition){
+    $this->ID=$tab_petition["ID"];
+    $this->titre=$tab_petition["titre"];
+    $this->ID_categorie=$tab_petition["ID_categorie"];
+    //$this->ID_profil=$tab_petition["ID_profil"];
+    $this->resume=$tab_petition["resume"];
+    $this->description=$tab_petition["description"];
+    $this->decideur=$tab_petition["decideur"];
+    $this->objectif_signature=$tab_petition["objectif_signature"];
+
+
+  }
+
+  function construct_tabtab($tab_petition){
+    $this->titre=$tab_petition[0];
+    $this->ID_categorie=$tab_petition[1];
+    $this->ID_profil=$tab_petition[2];
+    $this->resume=$tab_petition[3];
+    $this->description=$tab_petition[4];
+    $this->decideur=$tab_petition[5];
+    $this->objectif_signature=$tab_petition[6];
+    $this->timestamp=$tab_profil[7];
+
+  }
+
+
+
+  function affichage(){
+    $tab_affichage=get_object_vars($this);
+    foreach($tab_affichage as $value=>$case){
+      echo $value." ".$case. "<br>";}
+  }
+}
+
+
+//Requete 1.1 incription et donc création d'un nouveau profil
+function inscription($profil){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd, "INSERT INTO `Profils`( `mail`, `pseudo`, `mdp`, `nom`, `prenom`) VALUES (?,?,?,?,?)");
+  mysqli_stmt_bind_param($command,'sssss',$profil->mail,$profil->pseudo,$profil->mdp,$profil->nom,$profil->prenom);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+//Requete 1.2 check si le profil existe déjâ
+function check_profil_mail($mail){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd,"Select `mail`from Profils where mail=?");
+  mysqli_stmt_bind_param($command,'s',$mail);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  if($resultat->num_rows==1){
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return true;
+  }
+  else{
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return false;
+  }
+}
+
+//Requete 1.2 ne remonte que les signatures des pétitions existantes
+function nb_signatures(){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT
+	count(signatures.ID) as signatures
+FROM
+	signatures,
+	petitions
+where
+	signatures.ID_petition = petitions.ID");
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $nb_signatures=mysqli_fetch_assoc($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $nb_signatures;
+}
+
+//Requete 1.3
+function display_cat(){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT * FROM `categories`");
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+
+//Requete 3.1 sort les pétitions triées par date
+function sort_by_date(){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+(select
+	COUNT(signatures.ID)
+from
+	signatures,
+	petitions
+where
+	petitions.ID = id_petitions
+	and petitions.ID = signatures.ID_petition ) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature
+ORDER BY
+	pet1.timestamp DESC ");
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+//Requete 3.2 sort les pétitions triées par categories
+
+function sort_by_categorie(){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+(select
+	COUNT(signatures.ID)
+from
+	signatures,
+	petitions
+where
+	petitions.ID = id_petitions
+	and petitions.ID = signatures.ID_petition ) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature
+ORDER BY
+	categories.nom_categorie DESC ");
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+//Requete 3.3 sort les pétitions triées par nb de signatures
+
+function sort_by_popularity(){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+(select
+	COUNT(signatures.ID)
+from
+	signatures,
+	petitions
+where
+	petitions.ID = id_petitions
+	and petitions.ID = signatures.ID_petition ) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature
+ORDER BY
+	nombre DESC ");
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+function sort_categorie($cat){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+	(
+		select
+			COUNT(signatures.ID)
+		from
+			signatures,
+			petitions
+		where
+			petitions.ID = id_petitions
+			and petitions.ID = signatures.ID_petition
+	) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+where
+	categories.nom_categorie = ?
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature");
+  mysqli_stmt_bind_param($command,'s',$cat);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+
+//Requete 4 Renvoie les données d'une pétition (incluant son nb de signature actuel) en fontion de l'ID
+function info_petition($ID){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT pet1.titre, Profils.pseudo, pet1.ID, categories.nom_categorie, pet1.resume, pet1.description, pet2.decideur, pet1.objectif_signature, pet1.timestamp, pet1.timestamp_update, count(signatures.id) FROM Profils, categories right JOIN petitions as pet1 on categories.ID = pet1.ID_categorie, petitions as pet2 left JOIN signatures on pet2.ID = signatures.ID_petition where pet1.id =? and Profils.ID=pet1.ID_profil ");
+  mysqli_stmt_bind_param($command,'i',$ID);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_assoc($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+
+
+//Requete 4.1 insère une signature
+function signer($ID_profil, $ID_petition){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd,"INSERT INTO `signatures`(`ID_profil`, `ID_petition`) VALUES (?,?)");
+  mysqli_stmt_bind_param($command,'ii',$ID_profil,$ID_petition);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+
+
+//Requete 4.2 check signature
+function check_signature($ID_profil, $ID_petition){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd,"Select 'id'from signatures where ID_profil=? and ID_petition=?");
+  mysqli_stmt_bind_param($command,'ii',$ID_profil,$ID_petition);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  if($resultat->num_rows==1){
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return true;
+  }
+  else{
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return false;
+  }
+}
+
+//Requete 4.3 suppprimer une pétition
+function supprimer_petition($ID){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "DELETE FROM `petitions` WHERE `petitions`.`ID` = ?");
+  mysqli_stmt_bind_param($command,'i',$ID);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+//Requete 4.4 check auteur
+function check_auteur($ID_profil, $ID_petition){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd,"Select 'id'from petitions where ID_profil=? and ID=?");
+  mysqli_stmt_bind_param($command,'ii',$ID_profil,$ID_petition);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  if($resultat->num_rows==1){
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return true;
+  }
+  else{
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return false;
+  }
+}
+
+
+
+
+//Requete 5.1 va chercher le mdp en fonction du mail pour valider la connexion à modifier car mdp en clair
+function mdp_correct($mail){
+  $connectsgbd= connectsgbd();
+  $command=mysqli_prepare($connectsgbd, "SELECT `mdp` FROM `Profils` WHERE mail=?");
+  mysqli_stmt_bind_param($command,'s',$mail);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $mdp=mysqli_fetch_assoc($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $mdp;
+}
+
+
+//Requete 5.2 affichage du profil correspondant au mail mis en entrée (ou ID à avoir...)
+function accesProfil($mail){
+  $connectsgbd = connectsgbd();
+  $command = mysqli_prepare($connectsgbd, "SELECT ID, `mail`, `pseudo`, `mdp`, `nom`, `prenom`, `timestamp` FROM `Profils` WHERE mail=?");
+  mysqli_stmt_bind_param($command,'s',$mail);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $profil=mysqli_fetch_assoc($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $profil;
+}
+
+//Requete 5.3 affiche les petitions crées
+function accesPetition_cree($ID){
+  $connectsgbd = connectsgbd();
+  $command = mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+	(
+		select
+			COUNT(signatures.ID)
+		from
+			signatures,
+			petitions
+		where
+			petitions.ID = id_petitions
+			and petitions.ID = signatures.ID_petition
+	) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+where
+	pet1.ID_profil =?
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature
+ORDER BY
+	categories.nom_categorie DESC");
+  mysqli_stmt_bind_param($command,'i',$ID);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+//requete 5.4 affiche les pétitions signés
+function accesPetition_signe($ID){
+  $connectsgbd = connectsgbd();
+  $command = mysqli_prepare($connectsgbd, "SELECT
+	pet1.ID id_petitions,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature,
+(select
+	COUNT(signatures.ID)
+from
+	signatures,
+	petitions
+where
+	petitions.ID = id_petitions
+	and petitions.ID = signatures.ID_petition ) nombre
+FROM
+	categories
+	right JOIN petitions pet1 on categories.ID = pet1.ID_categorie,
+	petitions pet2
+	left JOIN signatures on pet2.ID = signatures.ID_petition
+GROUP BY
+	pet1.ID,
+	pet1.Titre,
+	categories.nom_categorie,
+	pet1.resume,
+	pet1.timestamp,
+	pet1.objectif_signature
+ORDER BY
+	categories.nom_categorie DESC");
+  mysqli_stmt_bind_param($command,'i',$ID);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  $petition=mysqli_fetch_all($resultat);
+  mysqli_free_result($resultat);
+  mysqli_close($connectsgbd);
+  return $petition;
+}
+
+//requete 5.5 changer le profil
+function update_profil($profil){
+  $connectsgbd=connectsgbd();
+  $command =mysqli_prepare($connectsgbd, "UPDATE `Profils` SET `mail`=?,`pseudo`=?,`mdp`=?,`nom`=?,`prenom`=? WHERE ID=?");
+  mysqli_stmt_bind_param($command,'sssssi',$profil->mail,$profil->pseudo,$profil->mdp,$profil->nom,$profil->prenom,$profil->ID);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+//création de pétitions 6.1
+function create_petition($petition){
+  $connectsgbd=connectsgbd();
+  $command =mysqli_prepare($connectsgbd, "INSERT INTO `petitions`( `Titre`, `ID_categorie`, `ID_profil`, `resume`, `description`, `decideur`, `objectif_signature`) VALUES (?,?,?,?,?,?,?)");
+  mysqli_stmt_bind_param($command,'siisssi',$petition->titre,$petition->ID_categorie,$petition->ID_profil,$petition->resume,$petition->description,$petition->decideur,$petition->objectif_signature);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+//check si le nom de la pétition existe déjâ
+function check_petition_titre($titre){
+  $connectsgbd= connectsgbd();
+  $command= mysqli_prepare($connectsgbd,"Select `titre`from petitions where titre=?");
+  mysqli_stmt_bind_param($command,'s',$titre);
+  mysqli_stmt_execute($command);
+  $resultat=mysqli_stmt_get_result($command);
+  if($resultat->num_rows==1){
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return true;
+  }
+  else{
+    mysqli_free_result($resultat);
+    mysqli_close($connectsgbd);
+    return false;
+  }
+}
+
+// actualiser la pétition 6.2
+function update_petition($petition){
+  $connectsgbd=connectsgbd();
+  $command =mysqli_prepare($connectsgbd, "UPDATE `petitions` SET `Titre`=?,`ID_categorie`=?,`ID_profil`=?,`resume`=?,`description`=?,`decideur`=?,`objectif_signature`=? WHERE ID=?");
+  mysqli_stmt_bind_param($command,'siisssii',$petition->titre,$petition->ID_categorie,$petition->ID_profil,$petition->resume,$petition->description,$petition->decideur,$petition->objectif_signature,$petition->ID_petition);
+  mysqli_stmt_execute($command);
+  mysqli_close($connectsgbd);
+}
+
+function verifchamp_profil($tab){
+  $erreur=array();
+
+  $mail=$tab["mail"];
+  if($mail !== "") {
+          if(!ereg("^[A-Za-z0-9.-_]*[@]{1}[A-Za-z0-9.-_]*[.]{1}[a-z]{2,5}$", $mail)){
+            $erreur["mail"]="email non valide";}
+          else if (check_profil_mail($tab['mail'])==true)
+          {
+            $erreur["mail"]="il existe déjâ un compte avec cette adresse email";
+          }
+
+  }
+  else{
+    $erreur["mail"]="email non rempli";
+  }
+  $mdp=$tab["mdp"];
+  if (strlen($mdp)<6){
+    $erreur["mdptaille"]="mot de passe trop court";
+  }
+  if ($mdp!=$tab["mdp_conf"]){
+    $erreur["mdp"]="confirmation du mot de passe fausse";
+  }
+
+  $pseudo=$tab["pseudo"];
+  if (strlen($pseudo)<2){
+    $erreur["pseudo"]="pseudo trop court";
+  }
+  $prenom=$tab["prenom"];
+  if (strlen($prenom)<2){
+    $erreur["prenom"]="prenom trop court";
+  }
+  $nom=$tab["nom"];
+  if (strlen($nom)<2){
+    $erreur["nom"]="nom trop court";
+  }
+  foreach ($erreur as $key => $value) {
+    echo $value;
+  }
+  if(count($erreur)==0){
+    return "pas de problème";
+}
+else {return $erreur;}
+}
+
+function verifchamp_petition($tab){
+  $erreur=array();
+
+
+  $titre=$tab["titre"];
+  if (strlen($titre)<2){
+    $erreur["titre"]="titre trop court";
+  }
+  if (check_petition_titre($titre)==true){
+    $erreur["titre"]="titre déjâ pris";
+  }
+  $decideur=$tab["decideur"];
+  if (strlen($decideur)<2){
+    $decideur["decideur"]="nom decideur trop court";
+  }
+  $description=$tab["description"];
+  if (strlen($description)<2){
+    $erreur["description"]="description trop courte";
+  }
+  $resume=$tab["resume"];
+  if (strlen($resume)<2){
+    $erreur["resume"]="resume trop court";
+  }
+  $objectif_signature=$tab["objectif_signature"];
+  if (is_numeric($objectif_signature)==false){
+    $erreur["objectif_signature"]="objectif signature incorrect";
+  }
+  if(count($erreur)==0){
+    return "pas de problème";
+}
+else {return $erreur;}
+}
+/*
+$tmp=display_cat();
+echo $tmp[0][1];
+foreach ($tmp[0] as $key => $value) {
+  echo $key."=>".$value."<br>";
+}*/
+/*
+if(check_petition_titre("coucouille")){
+  echo "c'est cool";
+}
+
+*//*
+$tmp=sort_categorie("Politique");
+foreach ($tmp[0] as $key => $value) {
+  echo $key."=>".$value."<br>";
+}*//*
+$tmp=accesPetition_cree(1);
+foreach ($tmp[0] as $key => $value) {
+  echo $key."=>".$value."<br>";
+}*/
+//$2y$10$duClImdERXGp/ET/cpsU5un1c5B7VreUWkiEWrlPV0anXdFhjl4lG
+//$2y$10$C6FJo7N4R4nsEREMF5xPL.oo6pzUfKOvpU7l8g/2bPosmvxc.ufgm
+/*$tmp=sort_by_popularity();
+for($i=0; $i<3;$i++ )
+{
+foreach ($tmp[$i] as $key => $value) {
+  echo $key."=>".$value."<br>";
+}}*/
+/*
+$tmp= new petition();
+$tmp->titre='coucouille';
+$tmp->ID_categorie=1;
+$tmp->ID_profil=1;
+$tmp->resume='Ceci est le fabuleux résumé de la pétition coucouille';
+$tmp->description='Ceci est la description de la pétition coucouille';
+$tmp->decideur='Jean Michel';
+$tmp->objectif_signature=3087794;
+$tmp->ID_petition=3;
+update_petition($tmp);*/
+/*$petition=info_petition(1);
+foreach ($petition as $key => $value) {
+  echo $key." => ".$value ;
+}*/
+/*
+$tmp= new profil();
+$tmp->mail="latuile@gmail.com";
+$tmp->pseudo="latuile";
+$tmp->mdp="toto";
+$tmp->nom="la";
+$tmp->prenom="tuile";
+$tmp->ID=3;
+
+update_profil($tmp);
+
+//inscription($tmp);
+
+$tmp2=new profil();
+$tmp2->construct_tab(accesProfil('latuile@gmail.com'));
+$tmp2->affichage();*/
+
+
+
+?>

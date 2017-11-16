@@ -1,0 +1,6 @@
+Pour installer le site, il faut:
+charger la base de données qui est dans la fichier G.sql
+mettre le reste des fichiers sur le serveur php
+En cas de problème vous pouvez nous contacter aux adresses:
+alexandre.piquemal@enseirb-matmeca.fr
+eric.mugnier@enseirb-matmeca.fr

@@ -1,0 +1,18 @@
+--fonts/ : dossier contenant les polices et glyphicons
+--site/functions.php : contient toutes les fonctions qui font la liaison mysql php
+--site/accueil.php : page d'accueil
+--site/bootstrap.min.css : page de style bootstrap
+--site/jquery.min.js : contient les plugins jquery de bootstrap
+--site/js/ : dossier cotenant les plugins javascript de bootstrap
+--site/conditions.php : page qui contient les conditions
+--site/connexion.php : page de connexion
+--site/contacts.php : page  où vous pouvez voir nos coordonnées
+--site/deconnexion.php : php qui est appelé lors de l'appui sur le bouton déconnexion
+--site/footer.php :  contient le bas de page appelé sur chaque page avec include
+--site/header.php :  contient l'entête de chaque page appelé partout avec include
+--site/inscription_page.php :  page d'inscription
+--site/petition.php : page qui charge les pétitions
+--site/profil.php : affiche le profil
+--site/set_petition.php : permet de créer une pétition
+--site/style.css : feuille de style du site
+--site/tripetition.php : page affichant toutes les pétitions

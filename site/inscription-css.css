@@ -1,0 +1,49 @@
+body, html {
+  margin: 0;
+  padding: 0;
+}
+a, a:hover {
+  text-decoration: none;
+}
+
+/* Header */
+.header {
+  background-color: #89D3E8;
+  height: 100px;
+  line-height: 100px;
+}
+.logo {
+  font-size: 20px;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  font-weight: bold;
+  float: left;
+}
+.logo a:hover{
+  color: white;
+}
+
+.menu {
+  color: #FFFFFF;
+  float: right;
+  letter-spacing: normal;
+}
+
+.menu a {
+  margin-right: 30px;
+}
+
+.menu a:hover{
+  color: white;
+}
+.below {
+  position: absolute;
+  width: 100%;
+  top: 100%;
+  background-color: #89D3E8;
+  height: 50px;
+  line-height: 50px;
+}
+.below a:hover {
+  color: white;
+}
